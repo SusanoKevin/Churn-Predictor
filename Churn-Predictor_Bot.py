@@ -1,74 +1,103 @@
 import streamlit as st
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
 
-# Load the cleaned dataset
+st.title("📊 Telco Customer Churn Prediction Bot")
+
+# Load and Preview the Dataset
+
 data_path = "cleaned_dataset.csv"
 df = pd.read_csv(data_path)
 
-# Confirm dataset loaded
 st.write("✅ Dataset successfully loaded!")
 st.write(df.head())
 
-# Select key features and identify categorical columns
+# Feature Selection & Categorical Encoding (LabelEncoder)
+
 selected_features = ['tenure', 'InternetService', 'Contract', 'MonthlyCharges']
 categorical_columns = ['InternetService', 'Contract']
 
-# Prepare encoders for categorical features
+# Encode categorical features. 
 label_encoders = {}
 for column in categorical_columns:
     le = LabelEncoder()
     df[column] = le.fit_transform(df[column])
     label_encoders[column] = le
 
-# Split features and target
+# Separate Features and Target Variable
+
 target_column = "Churn"
 X = df[selected_features]
 y = df[target_column]
 
-# Train-test split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
+# impute missing values if any
+imputer = SimpleImputer(strategy="mean")
+X = pd.DataFrame(imputer.fit_transform(X), columns=X.columns)
 
-# Scale numeric features
+
+# Split into Training and Testing Sets
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=123
+)
+
+# Scale Numeric Features using StandardScaler
+
 scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
-# Train Decision Tree model with class_weight balanced
-model = DecisionTreeClassifier(max_depth=7, random_state=123, class_weight='balanced')
-model.fit(X_train, y_train)
+# Train a Decision Tree Classifier with Hyperparameter Tuning
 
-# Check and display model accuracy
-train_accuracy = model.score(X_train, y_train)
-test_accuracy = model.score(X_test, y_test)
+param_grid = {
+    'max_depth': [None, 10, 20, 30],
+    'min_samples_split': [2, 3, 5],
+    'min_samples_leaf': [1, 2, 3]
+}
+
+# GridSearchCV 
+grid_search = GridSearchCV(
+    DecisionTreeClassifier(random_state=123, class_weight='balanced'),
+    param_grid,
+    cv=5,
+    scoring='accuracy'
+)
+grid_search.fit(X_train_scaled, y_train)
+best_model = grid_search.best_estimator_
+
+train_accuracy = best_model.score(X_train_scaled, y_train)
+test_accuracy = best_model.score(X_test_scaled, y_test)
 st.write(f"🔍 Train Accuracy: {train_accuracy:.2f} | Test Accuracy: {test_accuracy:.2f}")
 
-# Streamlit app UI
-st.title("📊 Telco Customer Churn Prediction Bot")
+# Streamlit User Interface for Prediction
 
-# Collect user inputs
+st.header("Make a Prediction")
 tenure = st.number_input("Tenure (months)", min_value=0, max_value=100, value=12)
 internet_service = st.selectbox("Internet Service", label_encoders['InternetService'].classes_)
 contract = st.selectbox("Contract Type", label_encoders['Contract'].classes_)
 monthly_charges = st.number_input("Monthly Charges ($)", min_value=0.0, max_value=200.0, value=70.0)
 
-# Prediction button
 if st.button("Predict Churn"):
+    # Create a DataFrame from user input
     user_input = pd.DataFrame([{
         'tenure': tenure,
         'InternetService': label_encoders['InternetService'].transform([internet_service])[0],
         'Contract': label_encoders['Contract'].transform([contract])[0],
         'MonthlyCharges': monthly_charges
     }])
-
+    
+    # Scale the user input in the same way as the training data
     user_input_scaled = scaler.transform(user_input)
-    prediction = model.predict(user_input_scaled)[0]
+    
+    # Generate the prediction
+    prediction = best_model.predict(user_input_scaled)[0]
     result = "Likely to churn" if prediction == 1 else "Unlikely to churn"
-
     st.success(f"📢 Prediction: **{result}**")
 
-# Show class balance in dataset
+# Display Class Distribution
+
 st.write("📊 Churn Class Distribution in Dataset:")
 st.write(df['Churn'].value_counts())
