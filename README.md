@@ -1,2 +1,3 @@
 # Churn-Predictor
-This bot predicts telecom churn using Kaggle data and ML, providing insights to improve customer retention.
+
+This Python-based bot predicts subscriber churn in the telecommunications industry using machine learning techniques applied to telco data sourced from Kaggle. By analyzing customer behavior and identifying risk factors, the bot generates actionable insights to help telecom providers optimize retention strategies. Equipped with data-driven algorithms such as logistic regression and decision trees, it delivers high-accuracy forecasts and scalable solutions tailored for different datasets. To use the bot, simply clone the repository, install dependencies, and run the prediction script after ensuring the dataset is properly set up. 
