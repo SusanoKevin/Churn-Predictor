@@ -1,103 +1,103 @@
 import streamlit as st
 import pandas as pd
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
 
-st.title("📊 Telco Customer Churn Prediction Bot")
+st.title("Telco Customer Churn Prediction Bot")
 
-# Load and Preview the Dataset
-
-data_path = "cleaned_dataset.csv"
-df = pd.read_csv(data_path)
-
-st.write("✅ Dataset successfully loaded!")
+# Load the cleaned dataset
+df = pd.read_csv("cleaned_dataset.csv")
+st.write("Dataset loaded.")
 st.write(df.head())
 
-# Feature Selection & Categorical Encoding (LabelEncoder)
+# Select features and target variable.
+# Using features: tenure, MonthlyCharges, TotalCharges, InternetService, and Contract.
+features = ["tenure", "MonthlyCharges", "TotalCharges", "InternetService", "Contract"]
+target = "Churn"
 
-selected_features = ['tenure', 'InternetService', 'Contract', 'MonthlyCharges']
-categorical_columns = ['InternetService', 'Contract']
+X = df[features]
+y = df[target]
 
-# Encode categorical features. 
-label_encoders = {}
-for column in categorical_columns:
-    le = LabelEncoder()
-    df[column] = le.fit_transform(df[column])
-    label_encoders[column] = le
+st.write("Feature sample:")
+st.write(X.head())
 
-# Separate Features and Target Variable
+# Define numeric and categorical columns.
+numeric_features = ["tenure", "MonthlyCharges", "TotalCharges"]
+categorical_features = ["InternetService", "Contract"]
 
-target_column = "Churn"
-X = df[selected_features]
-y = df[target_column]
+# Build a transformation pipeline.
+# Numeric columns: impute missing values (if any) and scale them.
+numeric_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="mean")),
+    ("scaler", StandardScaler())
+])
+# Categorical columns: impute and apply one-hot encoding.
+categorical_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    ("onehot", OneHotEncoder(handle_unknown="ignore"))
+])
 
-# impute missing values if any
-imputer = SimpleImputer(strategy="mean")
-X = pd.DataFrame(imputer.fit_transform(X), columns=X.columns)
+preprocessor = ColumnTransformer(transformers=[
+    ("num", numeric_transformer, numeric_features),
+    ("cat", categorical_transformer, categorical_features)
+])
 
+# Create a modeling pipeline with Logistic Regression using L2 regularization.
+pipeline = Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("classifier", LogisticRegression(max_iter=1000, class_weight="balanced"))
+])
 
-# Split into Training and Testing Sets
-
+# Split the data.
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=123
 )
 
-# Scale Numeric Features using StandardScaler
-
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
-X_test_scaled = scaler.transform(X_test)
-
-# Train a Decision Tree Classifier with Hyperparameter Tuning
-
+# Use GridSearchCV to tune the regularization strength (C).
 param_grid = {
-    'max_depth': [None, 10, 20, 30],
-    'min_samples_split': [2, 3, 5],
-    'min_samples_leaf': [1, 2, 3]
+    "classifier__C": [0.01, 0.1, 1, 10, 100]
 }
-
-# GridSearchCV 
-grid_search = GridSearchCV(
-    DecisionTreeClassifier(random_state=123, class_weight='balanced'),
-    param_grid,
-    cv=5,
-    scoring='accuracy'
-)
-grid_search.fit(X_train_scaled, y_train)
+grid_search = GridSearchCV(pipeline, param_grid, cv=5, scoring="accuracy", n_jobs=-1)
+grid_search.fit(X_train, y_train)
 best_model = grid_search.best_estimator_
 
-train_accuracy = best_model.score(X_train_scaled, y_train)
-test_accuracy = best_model.score(X_test_scaled, y_test)
-st.write(f"🔍 Train Accuracy: {train_accuracy:.2f} | Test Accuracy: {test_accuracy:.2f}")
+train_accuracy = best_model.score(X_train, y_train)
+test_accuracy = best_model.score(X_test, y_test)
 
-# Streamlit User Interface for Prediction
+st.write(f"Train Accuracy: {train_accuracy:.2f} | Test Accuracy: {test_accuracy:.2f}")
+st.write("Best hyperparameters:", grid_search.best_params_)
 
+# Prediction user interface
 st.header("Make a Prediction")
+
+# Input fields for features.
 tenure = st.number_input("Tenure (months)", min_value=0, max_value=100, value=12)
-internet_service = st.selectbox("Internet Service", label_encoders['InternetService'].classes_)
-contract = st.selectbox("Contract Type", label_encoders['Contract'].classes_)
-monthly_charges = st.number_input("Monthly Charges ($)", min_value=0.0, max_value=200.0, value=70.0)
+monthly_charges = st.number_input("Monthly Charges ($)", min_value=0, max_value=200, value=70)
+total_charges = st.number_input("Total Charges ($)", min_value=0, max_value=10000, value=100)
+
+# Use unique categorical values from the dataset.
+internet_service = st.selectbox("Internet Service", options=df["InternetService"].unique())
+contract = st.selectbox("Contract", options=df["Contract"].unique())
+
+# Construct a DataFrame from user inputs.
+input_data = pd.DataFrame({
+    "tenure": [tenure],
+    "MonthlyCharges": [monthly_charges],
+    "TotalCharges": [total_charges],
+    "InternetService": [internet_service],
+    "Contract": [contract]
+})
 
 if st.button("Predict Churn"):
-    # Create a DataFrame from user input
-    user_input = pd.DataFrame([{
-        'tenure': tenure,
-        'InternetService': label_encoders['InternetService'].transform([internet_service])[0],
-        'Contract': label_encoders['Contract'].transform([contract])[0],
-        'MonthlyCharges': monthly_charges
-    }])
-    
-    # Scale the user input in the same way as the training data
-    user_input_scaled = scaler.transform(user_input)
-    
-    # Generate the prediction
-    prediction = best_model.predict(user_input_scaled)[0]
+    prediction = best_model.predict(input_data)[0]
+    probability = best_model.predict_proba(input_data)[0][1]
     result = "Likely to churn" if prediction == 1 else "Unlikely to churn"
-    st.success(f"📢 Prediction: **{result}**")
+    st.success(f"Prediction: {result} (Churn probability: {probability:.2f})")
 
-# Display Class Distribution
-
-st.write("📊 Churn Class Distribution in Dataset:")
-st.write(df['Churn'].value_counts())
+# Display the class distribution in the dataset.
+st.write("Churn Class Distribution:")
+st.write(df[target].value_counts())
