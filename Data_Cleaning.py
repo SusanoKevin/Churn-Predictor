@@ -15,7 +15,7 @@ print(df.head())
 print("\nDataset Summary:")
 print(df.info())
 
-irrelevant_columns = ["RowNumber", "CustomerId", "Surname"]  # Adjust as per your dataset
+irrelevant_columns = ["RowNumber", "CustomerId", "Surname"]  # Adjust as per dataset
 df.drop(columns=irrelevant_columns, inplace=True, errors='ignore')
 print("\nColumns after removing irrelevant ones:")
 print(df.columns)
