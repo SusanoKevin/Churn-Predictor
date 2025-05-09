@@ -121,6 +121,3 @@ if st.button("Predict Churn"):
     result = "Likely to churn" if prediction == 1 else "Unlikely to churn"
     st.success(f"Prediction: **{result}** (Churn probability: {probability:.2f})")
 
-# Show class distribution in training data after SMOTE.
-st.write("Class Distribution After SMOTE:")
-st.write(pd.Series(y_resampled).value_counts())
