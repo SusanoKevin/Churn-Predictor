@@ -43,16 +43,21 @@ preprocessor = ColumnTransformer(transformers=[
     ("cat", categorical_transformer, categorical_features)
 ])
 
-# Apply SMOTE BEFORE splitting to prevent data leakage.
+# Apply preprocessing first
+X_preprocessed = preprocessor.fit_transform(X)
+
+# Convert y to 1D array (if needed)
+y = y.squeeze()
+
+# Apply SMOTE on the preprocessed features (ensuring numerical format)
 smote = SMOTE(random_state=123)
-X_resampled, y_resampled = smote.fit_resample(X, y)
+X_resampled, y_resampled = smote.fit_resample(X_preprocessed, y)
 
 # Now split the balanced dataset.
 X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=123)
 
-# Create an imblearn pipeline: preprocess -> Random Forest Classifier.
+# Create an imblearn pipeline: Random Forest Classifier.
 pipeline = ImbPipeline(steps=[
-    ("preprocessor", preprocessor),
     ("classifier", RandomForestClassifier(class_weight="balanced", random_state=123))
 ])
 
@@ -103,11 +108,11 @@ input_data = pd.DataFrame({
 })
 
 # Apply preprocessing before making predictions.
-input_data_processed = best_model.named_steps["preprocessor"].transform(input_data)
+input_data_processed = preprocessor.transform(input_data)
 
 if st.button("Predict Churn"):
-    prediction = best_model.named_steps["classifier"].predict(input_data_processed)[0]
-    probability = best_model.named_steps["classifier"].predict_proba(input_data_processed)[0][1]
+    prediction = best_model.predict(input_data_processed)[0]
+    probability = best_model.predict_proba(input_data_processed)[0][1]
     result = "Likely to churn" if prediction == 1 else "Unlikely to churn"
     st.success(f"📊 Prediction: **{result}** (Churn probability: {probability:.2f})")
 
