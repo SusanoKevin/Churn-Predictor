@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
 
-st.title("Customer Churn Prediction Bot (Random Forest + SMOTE)")
+st.title("Customer Churn Prediction Bot")
 
 # Load the cleaned dataset.
 df = pd.read_csv("cleaned_dataset.csv")
@@ -43,13 +43,16 @@ preprocessor = ColumnTransformer(transformers=[
     ("cat", categorical_transformer, categorical_features)
 ])
 
-# Split the dataset.
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=123)
+# Apply SMOTE BEFORE splitting to prevent data leakage.
+smote = SMOTE(random_state=123)
+X_resampled, y_resampled = smote.fit_resample(X, y)
 
-# Create an imblearn pipeline: preprocess -> SMOTE -> Random Forest Classifier.
+# Now split the balanced dataset.
+X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=123)
+
+# Create an imblearn pipeline: preprocess -> Random Forest Classifier.
 pipeline = ImbPipeline(steps=[
     ("preprocessor", preprocessor),
-    ("smote", SMOTE(random_state=123)),
     ("classifier", RandomForestClassifier(class_weight="balanced", random_state=123))
 ])
 
@@ -63,7 +66,7 @@ grid_search = GridSearchCV(pipeline, param_grid, cv=5, scoring="accuracy", n_job
 grid_search.fit(X_train, y_train)
 best_model = grid_search.best_estimator_
 
-# Evaluate model.
+# Evaluate model performance.
 y_train_pred = best_model.predict(X_train)
 y_test_pred = best_model.predict(X_test)
 
@@ -99,15 +102,15 @@ input_data = pd.DataFrame({
     "Contract": [contract]
 })
 
-# Predict churn.
+# Apply preprocessing before making predictions.
+input_data_processed = best_model.named_steps["preprocessor"].transform(input_data)
+
 if st.button("Predict Churn"):
-    prediction = best_model.predict(input_data)[0]
-    probability = best_model.predict_proba(input_data)[0][1]
+    prediction = best_model.named_steps["classifier"].predict(input_data_processed)[0]
+    probability = best_model.named_steps["classifier"].predict_proba(input_data_processed)[0][1]
     result = "Likely to churn" if prediction == 1 else "Unlikely to churn"
     st.success(f"📊 Prediction: **{result}** (Churn probability: {probability:.2f})")
 
 # Show class distribution in training data after SMOTE.
-st.write("🔍 Class Distribution After SMOTE (During Training):")
-smote = SMOTE(random_state=123)
-_, y_train_balanced = smote.fit_resample(X_train, y_train)
-st.write(pd.Series(y_train_balanced).value_counts())
+st.write("Class Distribution After SMOTE:")
+st.write(pd.Series(y_resampled).value_counts())
