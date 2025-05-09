@@ -118,7 +118,7 @@ if st.button("Predict Churn"):
     prediction = best_model.predict(input_data_processed)[0]
     probability = best_model.predict_proba(input_data_processed)[0][1]
     result = "Likely to churn" if prediction == 1 else "Unlikely to churn"
-    st.success(f"📊 Prediction: **{result}** (Churn probability: {probability:.2f})")
+    st.success(f"Prediction: **{result}** (Churn probability: {probability:.2f})")
 
 # Show class distribution in training data after SMOTE.
 st.write("Class Distribution After SMOTE:")
