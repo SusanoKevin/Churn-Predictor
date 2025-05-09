@@ -8,7 +8,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 st.title("Customer Churn Prediction Bot")
 
@@ -81,6 +81,7 @@ precision = precision_score(y_test, y_test_pred)
 recall = recall_score(y_test, y_test_pred)
 f1 = f1_score(y_test, y_test_pred)
 
+# Display model evaluation metrics
 st.write(f"**Train Accuracy:** {train_accuracy:.2f} | **Test Accuracy:** {test_accuracy:.2f}")
 st.write(f"**Precision:** {precision:.2f} | **Recall:** {recall:.2f} | **F1-score:** {f1:.2f}")
 
