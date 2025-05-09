@@ -84,27 +84,31 @@ f1 = f1_score(y_test, y_test_pred)
 st.write(f"**Train Accuracy:** {train_accuracy:.2f} | **Test Accuracy:** {test_accuracy:.2f}")
 st.write(f"**Precision:** {precision:.2f} | **Recall:** {recall:.2f} | **F1-score:** {f1:.2f}")
 
-# Display full classification report.
-st.text("Classification Report (Test Data):")
-st.text(classification_report(y_test, y_test_pred))
-
 # Prediction user interface.
 st.header("Make a Prediction")
 
-# Input fields.
-tenure = st.number_input("Tenure (months)", min_value=0, max_value=100, value=12)
-monthly_charges = st.number_input("Monthly Charges ($)", min_value=0.0, max_value=200.0, value=70.0)
-total_charges = st.number_input("Total Charges ($)", min_value=0.0, max_value=10000.0, value=100.0)
-internet_service = st.selectbox("Internet Service", options=df["InternetService"].unique())
-contract = st.selectbox("Contract", options=df["Contract"].unique())
+# Initialize session state for inputs
+for key, default in [("tenure", 12), ("monthly_charges", 70.0), ("total_charges", 100.0)]:
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+# Create input fields using session state
+tenure = st.number_input("Tenure (months)", min_value=0, max_value=100, value=st.session_state.tenure)
+monthly_charges = st.number_input("Monthly Charges ($)", min_value=0.0, max_value=200.0, value=st.session_state.monthly_charges)
+total_charges = st.number_input("Total Charges ($)", min_value=0.0, max_value=10000.0, value=st.session_state.total_charges)
+
+# Update session state values
+st.session_state.tenure = tenure
+st.session_state.monthly_charges = monthly_charges
+st.session_state.total_charges = total_charges
 
 # Collect user inputs.
 input_data = pd.DataFrame({
     "tenure": [tenure],
     "MonthlyCharges": [monthly_charges],
     "TotalCharges": [total_charges],
-    "InternetService": [internet_service],
-    "Contract": [contract]
+    "InternetService": [st.selectbox("Internet Service", options=df["InternetService"].unique())],
+    "Contract": [st.selectbox("Contract", options=df["Contract"].unique())]
 })
 
 # Apply preprocessing before making predictions.
